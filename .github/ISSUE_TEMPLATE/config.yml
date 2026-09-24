@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://appmanai.com/docs/
+    about: API reference, quickstart, authentication, rate limits and error codes.
+  - name: Coverage and data freshness
+    url: https://appmanai.com/coverage
+    about: Which countries and stores are covered, and how current each one is.
+  - name: Billing or account question
+    url: mailto:appman@appmanai.com
+    about: Anything touching your account, invoices or credits — not a public issue.

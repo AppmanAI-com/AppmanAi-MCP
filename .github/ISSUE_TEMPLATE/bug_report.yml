@@ -1,0 +1,41 @@
+name: Bug report
+description: A tool returns the wrong data, errors, or behaves unexpectedly.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please don't paste API keys or OAuth tokens. A `request_id` is enough for us to
+        find the call — every response carries one in the `X-Request-Id` header, and tool
+        errors quote it.
+
+  - type: input
+    id: tool
+    attributes:
+      label: Tool or endpoint
+      placeholder: keyword_app_metrics_rankings_batch
+    validations:
+      required: true
+
+  - type: input
+    id: client
+    attributes:
+      label: Client
+      description: Which MCP client, or "HTTP API" if you called it directly.
+      placeholder: Claude Desktop 1.4.2 / Cursor / HTTP API
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected, and what happened instead
+      description: Include the arguments you passed — store, country, package, keywords.
+    validations:
+      required: true
+
+  - type: input
+    id: request_id
+    attributes:
+      label: request_id
+      description: From the `X-Request-Id` header or the error message, if you have one.

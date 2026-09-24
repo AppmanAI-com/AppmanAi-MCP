@@ -1,0 +1,25 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.appmanai-com/appmanai-mcp",
+  "title": "AppmanAi",
+  "description": "App Store and Google Play data for ASO research: keyword metrics, rank tracking, top charts, app metadata, reviews and ratings across 100+ countries. 35 read-only tools, per-call pricing published up front.",
+  "version": "1.0.0",
+  "websiteUrl": "https://appmanai.com",
+  "repository": {
+    "url": "https://github.com/AppmanAI-com/AppmanAi-MCP",
+    "source": "github"
+  },
+  "icons": [
+    {
+      "src": "https://appmanai.com/logo.png",
+      "mimeType": "image/png",
+      "sizes": ["512x512"]
+    }
+  ],
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://appmanai.com/api/mcp"
+    }
+  ]
+}

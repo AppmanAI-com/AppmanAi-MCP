@@ -1,0 +1,36 @@
+name: Missing country or data
+description: We don't cover a market, store or metric you need.
+labels: [coverage]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Demand is how we decide what to crawl next, so these requests genuinely move the
+        roadmap. Check [current coverage](https://appmanai.com/coverage) first — it lists
+        the gaps honestly, so the thing you want may already be on the way.
+
+  - type: input
+    id: country
+    attributes:
+      label: Country or countries
+      placeholder: BR, MX, ID
+    validations:
+      required: true
+
+  - type: dropdown
+    id: store
+    attributes:
+      label: Store
+      options: [App Store, Google Play, Both]
+    validations:
+      required: true
+
+  - type: textarea
+    id: usecase
+    attributes:
+      label: What you would do with it
+      description: >-
+        Which tools you'd call and what decision it feeds. Concrete use cases get
+        prioritised over "would be nice to have".
+    validations:
+      required: true

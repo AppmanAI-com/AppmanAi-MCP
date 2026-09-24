@@ -1,0 +1,1011 @@
+# appmanai — Public API v1 (spec-first source of truth)
+#
+# Shape decision: FAÇADE over the appman engine, not a passthrough.
+#   - Public surface is GET-only for reads, with every identifier in the query string.
+#     `store` and `country` are query parameters, so no route needs a special path shape.
+#   - `x-appman` on each operation declares the upstream call the façade makes. It is
+#     INTERNAL: docs/scripts/gen-spec.mjs strips every `x-*` except `x-credit-cost`
+#     before publishing, and fails the build if one leaks.
+#   - Auth swapped: upstream X-API-Key  ->  public Bearer token.
+#   - Dropped upstream: "keywords/ranked" (OBSOLETE) and the localhost health check.
+#
+# `x-credit-cost` is the live price per operation (feeds docs + ledger), set from
+# appmanai-credit-pricing-spec.md. A cost of 0 is a free reference call.
+#
+# TODO before this is truly frozen:
+#   - response schemas (upstream export had none; examples come from response-examples.json)
+
+openapi: 3.1.0
+
+info:
+  title: appmanai Public API
+  version: 1.0.0
+  description: >-
+    App Store & Google Play data. Reads are `GET` with query parameters and a Bearer
+    API key; the two `generate` endpoints are `POST` with a JSON body.
+
+servers:
+  - url: https://appmanai.com/api/v1
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: App Metadata
+    description: An app's store listing — title, developer, category, ratings, metadata.
+  - name: App Search
+    description: Finding an app by name, and the apps a store considers similar to it.
+  - name: App Metrics
+    description: Measurements of an app over time. Ratings today; more metrics later.
+  - name: App Reviews
+    description: User reviews of an app.
+  - name: App Category Ranking
+    description: Where an app sits in the store's category charts, now and over time.
+  - name: Top Charts
+    description: The apps at the top of a category chart.
+  - name: Keyword Metrics
+    description: What a keyword is worth — popularity (SAP), difficulty, ranking volatility.
+  - name: Keyword Metrics by App
+    description: One app's rank for given keywords, now, over time and across countries.
+  - name: Keyword Search
+    description: The apps a store returns for a keyword — the search results a user sees.
+  - name: Keyword Suggestions
+    description: Related keywords to target, from a seed keyword.
+  - name: Keyword Suggestions by App
+    description: Keywords to target, derived from an app and its competitors.
+  - name: Generation
+    description: AI-written keyword lists and store-listing copy.
+  - name: Reference Data
+    description: Countries, categories and dataset coverage.
+
+paths:
+  /apps/metrics/metadata:
+    get:
+      tags: [App Metadata]
+      operationId: appMetricsMetadata
+      summary: 'App Metadata — Current'
+      description: Full store listing for one app.
+      x-credit-cost: 3
+      x-appman:
+        method: POST
+        path: '{store}/{country}/app'
+        form: { package: package, force_update: force_update }
+      parameters:
+        - $ref: '#/components/parameters/Store'
+        - $ref: '#/components/parameters/Country'
+        - $ref: '#/components/parameters/Package'
+        - $ref: '#/components/parameters/ForceUpdate'
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /apps/metrics/metadata/batch:
+    get:
+      tags: [App Metadata]
+      operationId: appMetricsMetadataBatch
+      summary: 'App Metadata — Current (batch)'
+      description: Store listings for several apps in one call.
+      x-credit-cost: 8
+      x-appman:
+        method: POST
+        path: '{store}/{country}/batch/apps'
+        timeoutMs: 60000
+        form: { packages: packages }
+      parameters:
+        - $ref: '#/components/parameters/Store'
+        - $ref: '#/components/parameters/Country'
+        - $ref: '#/components/parameters/Packages'
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /apps/search:
+    get:
+      tags: [App Search]
+      operationId: appSearch
+      summary: 'App Search — By name'
+      description: Resolve an app name into package ids.
+      x-credit-cost: 2
+      x-appman:
+        method: POST
+        path: '{store}/{country}/app/search'
+        form: { keyword: q }
+        query: { limit: limit }
+      parameters:
+        - $ref: '#/components/parameters/Store'
+        - $ref: '#/components/parameters/Country'
+        - name: q
+          in: query
+          required: true
+          description: Search text, e.g. "meditation".
+          schema: { type: string }
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /apps/similar:
+    get:
+      tags: [App Search]
+      operationId: appSimilar
+      summary: 'App Search — Similar apps'
+      description: The apps the store itself considers similar to a given app.
+      x-credit-cost: 5
+      x-appman:
+        method: POST
+        path: '{store}/{country}/app/similar'
+        form: { package: package }
+        query: { limit: limit }
+      parameters:
+        - $ref: '#/components/parameters/Store'
+        - $ref: '#/components/parameters/Country'
+        - $ref: '#/components/parameters/Package'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /apps/metrics/ratings/worldwide:
+    get:
+      tags: [App Metrics]
+      operationId: appMetricsRatingsWorldwide
+      summary: 'App Metrics — Current: ratings'
+      description: An app's rating and per-star vote counts in every country it is listed in.
+      x-credit-cost: 6
+      x-appman:
+        method: POST
+        path: '{store}/ratings/breakdown'
+        form: { package: package }
+      parameters:
+        - $ref: '#/components/parameters/Store'
+        - $ref: '#/components/parameters/Package'
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /apps/metrics/ratings/history:
+    get:
+      tags: [App Metrics]
+      operationId: appMetricsRatingsHistory
+      summary: 'App Metrics — History: ratings'
+      description: An app's average rating and star breakdown over time in one country.
+      x-credit-cost: 5
+      x-appman:
+        method: POST
+        path: '{store}/{country}/app/user-rating/history'
+        form: { package: package }
+      parameters:
+        - $ref: '#/components/parameters/Store'
+        - $ref: '#/components/parameters/Country'
+        - $ref: '#/components/parameters/Package'
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /apps/reviews:
+    get:
+      tags: [App Reviews]
+      operationId: appReviews
+      summary: 'App Reviews — List'
+      description: User reviews of an app — author, star rating, text and date.
+      x-credit-cost: 4
+      x-appman:
+        method: POST
+        path: '{store}/{country}/app/reviews'
+        timeoutMs: 60000
+        form:
+          package: package
+          star_filter: star_filter
+          sort_type: sort_type
+          page: page
+          page_token: page_token
+          force_update: force_update
+      parameters:
+        - $ref: '#/components/parameters/Store'
+        - $ref: '#/components/parameters/Country'
+        - $ref: '#/components/parameters/Package'
+        - name: star_filter
+          in: query
+          description: Only reviews with this star rating.
+          schema: { type: integer, minimum: 1, maximum: 5 }
+        - name: sort_type
+          in: query
+          description: Store's sort order id (newest / most relevant / rating).
+          schema: { type: integer }
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1 }
+        - name: page_token
+          in: query
+          description: Continuation token returned by a previous page.
+          schema: { type: string }
+        - $ref: '#/components/parameters/ForceUpdate'
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /apps/category-rankings:
+    get:
+      tags: [App Category Ranking]
+      operationId: appCategoryRankings
+      summary: 'App Category Ranking — Current'
+      description: Every category chart an app currently appears in, with its rank in each.
+      x-credit-cost: 3
+      x-appman:
+        method: POST
+        path: '{store}/category/rank'
+        form:
+          country_id: country
+          package: package
+          category_name: category
+          sub_category_name: sub_category
+          limit: limit
+      parameters:
+        - $ref: '#/components/parameters/Store'
+        - $ref: '#/components/parameters/Country'
+        - $ref: '#/components/parameters/Package'
+        - $ref: '#/components/parameters/Category'
+        - $ref: '#/components/parameters/SubCategory'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /apps/category-rankings/single:
+    get:
+      tags: [App Category Ranking]
+      operationId: appCategoryRankingsSingle
+      summary: 'App Category Ranking — Current (one chart)'
+      description: An app's position in a single named category chart.
+      x-credit-cost: 2
+      x-appman:
+        method: POST
+        path: '{store}/category/single-rank'
+        form:
+          country_id: country
+          package: package
+          category_name: category
+          sub_category_name: sub_category
+          cache: cache
+      parameters:
+        - $ref: '#/components/parameters/Store'
+        - $ref: '#/components/parameters/Country'
+        - $ref: '#/components/parameters/Package'
+        - $ref: '#/components/parameters/Category'
+        - $ref: '#/components/parameters/SubCategory'
+        - $ref: '#/components/parameters/Cache'
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /apps/category-rankings/history:
+    get:
+      tags: [App Category Ranking]
+      operationId: appCategoryRankingsHistory
+      summary: 'App Category Ranking — History'
+      description: An app's category chart position over time.
+      x-credit-cost: 6
+      x-appman:
+        method: POST
+        path: '{store}/category/rank/history'
+        form:
+          country_id: country
+          package: package
+          category_name: category
+          sub_category_name: sub_category
+          limit: limit
+      parameters:
+        - $ref: '#/components/parameters/Store'
+        - $ref: '#/components/parameters/Country'
+        - $ref: '#/components/parameters/Package'
+        - $ref: '#/components/parameters/Category'
+        - $ref: '#/components/parameters/SubCategory'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /apps/category-rankings/start:
+    get:
+      tags: [App Category Ranking]
+      operationId: appCategoryStartRankings
+      summary: 'App Category Ranking — Start ranks'
+      description: Where each app first entered a chart, from a given date.
+      x-credit-cost: 5
+      x-appman:
+        method: POST
+        path: '{store}/category/start-ranks'
+        form:
+          country_id: country
+          category_name: category
+          sub_category_name: sub_category
+          # appman wants packages[i][package] / packages[i][min_date]; the public form is
+          # a flat list of "package" or "package:min_date" strings.
+          packages: { from: packages, split: ':', into: [package, min_date] }
+      parameters:
+        - $ref: '#/components/parameters/Store'
+        - $ref: '#/components/parameters/Country'
+        - $ref: '#/components/parameters/Category'
+        - $ref: '#/components/parameters/SubCategory'
+        - name: packages
+          in: query
+          required: true
+          description: >-
+            Repeatable. Each entry is `package:min_date`, e.g. `com.discord:2026-01-01`.
+            The start date is required — without it the call is rejected.
+          schema:
+            type: array
+            items: { type: string }
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /categories/top-apps:
+    get:
+      tags: [Top Charts]
+      operationId: categoryTopApps
+      summary: 'Top Charts — Current'
+      description: The apps at the top of a category chart (top free, top grossing, top paid).
+      x-credit-cost: 5
+      x-appman:
+        method: POST
+        path: '{store}/category/top-apps'
+        form:
+          country_id: country
+          category_name: category
+          sub_category_name: sub_category
+          extended: extended
+          show_diff: show_diff
+          date: date
+          limit: limit
+      parameters:
+        - $ref: '#/components/parameters/Store'
+        - $ref: '#/components/parameters/Country'
+        - $ref: '#/components/parameters/Category'
+        - $ref: '#/components/parameters/SubCategory'
+        - name: extended
+          in: query
+          description: Return full app profiles instead of package ids and ranks.
+          schema: { type: boolean }
+        - name: show_diff
+          in: query
+          description: Include each app's movement since the previous chart.
+          schema: { type: boolean }
+        - name: date
+          in: query
+          description: Chart date. Defaults to the latest.
+          schema: { type: string, format: date }
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /keywords/metrics:
+    get:
+      tags: [Keyword Metrics]
+      operationId: keywordMetrics
+      summary: 'Keyword Metrics — Current'
+      description: A keyword's ASO profile — popularity (SAP), difficulty and languages.
+      x-credit-cost: 4
+      x-appman:
+        method: POST
+        path: '{store}/{country}/keyword/profile'
+        form: { keyword: keyword }
+      parameters:
+        - $ref: '#/components/parameters/Store'
+        - $ref: '#/components/parameters/Country'
+        - $ref: '#/components/parameters/Keyword'
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /keywords/metrics/sap:
+    get:
+      tags: [Keyword Metrics]
+      operationId: keywordMetricsSap
+      summary: 'Keyword Metrics — Current: sap'
+      description: >-
+        Search Ads Popularity (0-100) for one keyword, across both stores. The cheapest
+        popularity check; `/keywords/metrics` adds difficulty and languages.
+      x-credit-cost: 4
+      x-appman:
+        method: POST
+        path: '{country}/keyword/score'
+        form: { keyword: keyword }
+        query: { cache: cache }
+      parameters:
+        - $ref: '#/components/parameters/Country'
+        - $ref: '#/components/parameters/Keyword'
+        - $ref: '#/components/parameters/Cache'
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /keywords/metrics/sap/batch:
+    get:
+      tags: [Keyword Metrics]
+      operationId: keywordMetricsSapBatch
+      summary: 'Keyword Metrics — Current: sap (batch)'
+      description: Search Ads Popularity for several keywords in one call.
+      x-credit-cost: 9
+      x-appman:
+        method: POST
+        path: '{country}/keywords/score'
+        timeoutMs: 60000
+        form: { keywords: keywords }
+      parameters:
+        - $ref: '#/components/parameters/Country'
+        - $ref: '#/components/parameters/Keywords'
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /keywords/metrics/volatility:
+    get:
+      tags: [Keyword Metrics]
+      operationId: keywordMetricsVolatility
+      summary: 'Keyword Metrics — Volatility'
+      description: >-
+        How much the store's ranking algorithm moved in one country over a period. High
+        volatility means rank changes are the store's doing, not yours.
+      x-credit-cost: 8
+      x-appman:
+        method: POST
+        path: '{store}/{country}/keyword/algorithm-anomaly'
+        query: { from: from, to: to }
+      parameters:
+        - $ref: '#/components/parameters/Store'
+        - $ref: '#/components/parameters/Country'
+        - $ref: '#/components/parameters/From'
+        - $ref: '#/components/parameters/To'
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /keywords/metrics/volatility/worldwide:
+    get:
+      tags: [Keyword Metrics]
+      operationId: keywordMetricsVolatilityWorldwide
+      summary: 'Keyword Metrics — Volatility, worldwide'
+      description: Ranking volatility for one date across every country, to compare markets.
+      x-credit-cost: 12
+      x-appman:
+        method: POST
+        path: '{store}/worldwide/keyword/algorithm-anomaly'
+        query: { date: date, window: window }
+      parameters:
+        - $ref: '#/components/parameters/Store'
+        - name: date
+          in: query
+          description: Day to report on. Defaults to the latest.
+          schema: { type: string, format: date }
+        - name: window
+          in: query
+          description: Days to average over.
+          schema: { type: integer, minimum: 1 }
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /keywords/app/metrics/rankings:
+    get:
+      tags: [Keyword Metrics by App]
+      operationId: keywordAppMetricsRankings
+      summary: 'Keyword Metrics by App — Current: rank'
+      description: Where one app ranks in search results for one keyword.
+      x-credit-cost: 2
+      x-appman:
+        method: POST
+        path: '{store}/{country}/keyword/rank'
+        form: { package: package, keyword: keyword }
+        query: { cache: cache }
+      parameters:
+        - $ref: '#/components/parameters/Store'
+        - $ref: '#/components/parameters/Country'
+        - $ref: '#/components/parameters/Package'
+        - $ref: '#/components/parameters/Keyword'
+        - $ref: '#/components/parameters/Cache'
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /keywords/app/metrics/rankings/batch:
+    get:
+      tags: [Keyword Metrics by App]
+      operationId: keywordAppMetricsRankingsBatch
+      summary: 'Keyword Metrics by App — Current: rank (batch)'
+      description: One app's rank for a list of keywords, in one call.
+      x-credit-cost: 9
+      x-appman:
+        method: POST
+        path: '{store}/{country}/keyword/ranks'
+        timeoutMs: 60000
+        form: { package: package, keywords: keywords }
+      parameters:
+        - $ref: '#/components/parameters/Store'
+        - $ref: '#/components/parameters/Country'
+        - $ref: '#/components/parameters/Package'
+        - $ref: '#/components/parameters/Keywords'
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /keywords/app/metrics/rankings/history:
+    get:
+      tags: [Keyword Metrics by App]
+      operationId: keywordAppMetricsRankingsHistory
+      summary: 'Keyword Metrics by App — History: rank'
+      description: One app's rank for a keyword over time.
+      x-credit-cost: 6
+      x-appman:
+        method: POST
+        path: '{store}/{country}/keyword/rank/history'
+        form: { package: package, keyword: keyword }
+        query: { period: period }
+      parameters:
+        - $ref: '#/components/parameters/Store'
+        - $ref: '#/components/parameters/Country'
+        - $ref: '#/components/parameters/Package'
+        - $ref: '#/components/parameters/Keyword'
+        - name: period
+          in: query
+          description: Window to report. Defaults to `month`.
+          schema: { type: string, enum: [week, month, year] }
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /keywords/app/metrics/rankings/worldwide:
+    get:
+      tags: [Keyword Metrics by App]
+      operationId: keywordAppMetricsRankingsWorldwide
+      summary: 'Keyword Metrics by App — Worldwide ranks'
+      description: One app's rank for a keyword in every country at once.
+      x-credit-cost: 12
+      x-appman:
+        method: POST
+        path: '{store}/worldwide/keyword/ranks'
+        form: { package: package, keyword: keyword, cache: cache }
+      parameters:
+        - $ref: '#/components/parameters/Store'
+        - $ref: '#/components/parameters/Package'
+        - $ref: '#/components/parameters/Keyword'
+        - $ref: '#/components/parameters/Cache'
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /keywords/top-apps:
+    get:
+      tags: [Keyword Search]
+      operationId: keywordTopApps
+      summary: 'Keyword Search — Current'
+      description: >-
+        The apps that rank highest for a keyword — the search results a user sees. Use it to
+        find the incumbents for a keyword.
+      x-credit-cost: 5
+      x-appman:
+        method: POST
+        path: '{store}/{country}/keyword/top-apps'
+        form: { keyword: keyword }
+        query: { limit: limit }
+      parameters:
+        - $ref: '#/components/parameters/Store'
+        - $ref: '#/components/parameters/Country'
+        - $ref: '#/components/parameters/Keyword'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /keywords/suggestions:
+    get:
+      tags: [Keyword Suggestions]
+      operationId: keywordSuggestions
+      summary: 'Keyword Suggestions — Related'
+      description: Expand a seed keyword into related keywords for one store and country.
+      x-credit-cost: 5
+      x-appman:
+        method: POST
+        path: '{store}/{country}/keyword/suggest'
+        form: { keyword: keyword }
+        query: { limit: limit }
+      parameters:
+        - $ref: '#/components/parameters/Store'
+        - $ref: '#/components/parameters/Country'
+        - $ref: '#/components/parameters/Keyword'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /keywords/suggestions/worldwide:
+    get:
+      tags: [Keyword Suggestions]
+      operationId: keywordSuggestionsWorldwide
+      summary: 'Keyword Suggestions — Worldwide'
+      description: >-
+        Related keywords with their popularity across all markets, without picking a store
+        or country. The cheap first pass before narrowing down.
+      x-credit-cost: 10
+      x-appman:
+        method: POST
+        path: 'worldwide/keyword/search'
+        form: { keyword: keyword, limit: limit }
+      parameters:
+        - $ref: '#/components/parameters/Keyword'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /keywords/app/suggestions:
+    get:
+      tags: [Keyword Suggestions by App]
+      operationId: keywordAppSuggestions
+      summary: 'Keyword Suggestions by App — Recommended'
+      description: The keywords one app is recommended for / already ranks on.
+      x-credit-cost: 6
+      x-appman:
+        method: POST
+        path: '{store}/{country}/app/keywords/recommended'
+        form: { package: package }
+        query: { limit: limit }
+      parameters:
+        - $ref: '#/components/parameters/Store'
+        - $ref: '#/components/parameters/Country'
+        - $ref: '#/components/parameters/Package'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /keywords/app/competitors:
+    get:
+      tags: [Keyword Suggestions by App]
+      operationId: keywordAppCompetitors
+      summary: 'Keyword Suggestions by App — Competitors'
+      description: >-
+        Keywords this app's competitors rank for, with popularity and this app's own rank
+        where it has one. The gaps rivals own and you do not.
+      x-credit-cost: 6
+      x-appman:
+        method: POST
+        path: '{store}/{country}/app/keywords/competitors'
+        form: { package: package }
+        query: { limit: limit }
+      parameters:
+        - $ref: '#/components/parameters/Store'
+        - $ref: '#/components/parameters/Country'
+        - $ref: '#/components/parameters/Package'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /keywords/app/overlap:
+    get:
+      tags: [Keyword Suggestions by App]
+      operationId: keywordAppOverlap
+      summary: 'Keyword Suggestions by App — Overlap'
+      description: >-
+        Given a set of apps, the keywords they compete on — each with its popularity and
+        every app's rank for it. A head-to-head comparison across a competitor set.
+      x-credit-cost: 7
+      x-appman:
+        method: POST
+        path: '{store}/{country}/app/keywords/competitors-overlap'
+        timeoutMs: 60000
+        form:
+          packages: packages
+          min_rank: min_rank
+          min_sap: min_sap
+          min_apps: min_apps
+          limit: limit
+      parameters:
+        - $ref: '#/components/parameters/Store'
+        - $ref: '#/components/parameters/Country'
+        - $ref: '#/components/parameters/Packages'
+        - name: min_rank
+          in: query
+          description: Only keywords an app ranks at least this high for.
+          schema: { type: integer, minimum: 1 }
+        - name: min_sap
+          in: query
+          description: Only keywords with at least this popularity (0-100).
+          schema: { type: integer }
+        - name: min_apps
+          in: query
+          description: Only keywords at least this many of the apps rank for.
+          schema: { type: integer, minimum: 1 }
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /generate/keywords:
+    post:
+      tags: [Generation]
+      operationId: generateKeywords
+      summary: 'Generation — Keywords'
+      description: >-
+        Generate a keyword list for an app from its own store listing, each scored with
+        popularity and the app's current rank where it has one.
+      x-credit-cost: 12
+      x-appman:
+        method: POST
+        path: '{store}/{country}/app/keywords/ai-generated'
+        timeoutMs: 60000
+        form: { package: package, language: language }
+        query: { limit: limit }
+      parameters:
+        - $ref: '#/components/parameters/Store'
+        - $ref: '#/components/parameters/Country'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [package]
+              properties:
+                package: { type: string, example: com.discord }
+                language: { type: string, example: en }
+                limit: { type: integer, maximum: 100 }
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /generate/app-metadata:
+    post:
+      tags: [Generation]
+      operationId: generateAppMetadata
+      summary: 'Generation — Metadata'
+      description: >-
+        Rewrite a store listing — title, short and long description — optimised for the
+        keywords you pass. Takes the current copy directly, so you can iterate on drafts.
+      x-credit-cost: 15
+      x-appman:
+        method: POST
+        path: '{store}/{country}/app/metadata/ai-generated'
+        timeoutMs: 60000
+        json: true
+        form:
+          title: title
+          description: description
+          category_tag: category_tag
+          language: language
+          keywords: keywords
+          competitors: competitors
+      parameters:
+        - $ref: '#/components/parameters/Store'
+        - $ref: '#/components/parameters/Country'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title: { type: string }
+                description: { type: string }
+                category_tag: { type: string, example: BUSINESS }
+                language: { type: string, example: en }
+                keywords:
+                  type: array
+                  items: { type: string }
+                competitors:
+                  type: array
+                  items: { type: string }
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /resources/countries:
+    get:
+      tags: [Reference Data]
+      operationId: listCountries
+      summary: 'Reference Data — Countries'
+      description: Supported countries and their settings.
+      x-credit-cost: 0
+      x-appman:
+        method: GET
+        path: 'resources/countries'
+        query:
+          appstore_id: store
+          country_id: country
+          language_id: language
+          support_level: support_level
+      parameters:
+        - $ref: '#/components/parameters/StoreOptional'
+        - $ref: '#/components/parameters/CountryOptional'
+        - $ref: '#/components/parameters/Language'
+        - name: support_level
+          in: query
+          schema: { type: integer, enum: [0, 1, 5] }
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /resources/categories:
+    get:
+      tags: [Reference Data]
+      operationId: listCategories
+      summary: 'Reference Data — Categories'
+      description: Category and chart tags valid for a store.
+      x-credit-cost: 0
+      x-appman:
+        method: GET
+        path: 'resources/categories'
+        query: { appstore_id: store }
+      parameters:
+        - $ref: '#/components/parameters/StoreOptional'
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        default: { $ref: '#/components/responses/Error' }
+
+  /resources/features:
+    get:
+      tags: [Reference Data]
+      operationId: listFeatures
+      summary: 'Reference Data — Features'
+      description: Which parts of the dataset exist for a store and country.
+      x-credit-cost: 0
+      x-appman:
+        method: GET
+        path: 'resources/features'
+        query:
+          appstore_id: store
+          country_id: country
+          language_id: language
+      parameters:
+        - $ref: '#/components/parameters/StoreOptional'
+        - $ref: '#/components/parameters/CountryOptional'
+        - $ref: '#/components/parameters/Language'
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        default: { $ref: '#/components/responses/Error' }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: Your appmanai API key as a Bearer token.
+
+  parameters:
+    Store:
+      name: store
+      in: query
+      required: true
+      description: Which app store.
+      schema: { type: string, enum: [android, ios] }
+    StoreOptional:
+      name: store
+      in: query
+      required: false
+      description: Limit to one store; both are returned otherwise.
+      schema: { type: string, enum: [android, ios] }
+    Country:
+      name: country
+      in: query
+      required: true
+      description: Two-letter ISO country code. Case-insensitive.
+      schema: { type: string, minLength: 2, maxLength: 2 }
+      example: US
+    CountryOptional:
+      name: country
+      in: query
+      required: false
+      description: Two-letter ISO country code. Case-insensitive.
+      schema: { type: string, minLength: 2, maxLength: 2 }
+      example: US
+    Package:
+      name: package
+      in: query
+      required: true
+      description: >-
+        App package / bundle id — `com.discord` on Android, a numeric id on iOS. Use
+        `/apps/search` to resolve a name.
+      schema: { type: string }
+      example: com.discord
+    Packages:
+      name: packages
+      in: query
+      required: true
+      description: Repeatable. One or more package / bundle ids.
+      schema:
+        type: array
+        items: { type: string }
+    Keyword:
+      name: keyword
+      in: query
+      required: true
+      description: A single search term.
+      schema: { type: string }
+      example: habit tracker
+    Keywords:
+      name: keywords
+      in: query
+      required: true
+      description: Repeatable. One or more search terms.
+      schema:
+        type: array
+        items: { type: string }
+    Category:
+      name: category
+      in: query
+      required: false
+      description: Category tag, e.g. `APPLICATION`. `/resources/categories` has the valid tags.
+      schema: { type: string }
+    SubCategory:
+      name: sub_category
+      in: query
+      required: false
+      description: Chart inside the category, e.g. `topgrossing`, `topselling_free`.
+      schema: { type: string }
+    Language:
+      name: language
+      in: query
+      required: false
+      description: Language code for localised or generated text.
+      schema: { type: string }
+      example: en
+    Limit:
+      name: limit
+      in: query
+      required: false
+      description: How many rows to return.
+      schema: { type: integer, minimum: 1 }
+    Cache:
+      name: cache
+      in: query
+      required: false
+      description: Use a cached result. `true` by default.
+      schema: { type: boolean }
+    ForceUpdate:
+      name: force_update
+      in: query
+      required: false
+      description: Bypass the cache and refetch from the store. Slower.
+      schema: { type: boolean }
+    From:
+      name: from
+      in: query
+      required: false
+      schema: { type: string, format: date }
+    To:
+      name: to
+      in: query
+      required: false
+      schema: { type: string, format: date }
+
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }
+        request_id: { type: string }
+    Success:
+      type: object
+      additionalProperties: true
+      description: Data from the appman engine.
+
+  responses:
+    Success:
+      description: Successful response.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Success'
+    Error:
+      description: Error response.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
