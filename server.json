@@ -1,8 +1,8 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.appmanai-com/appmanai-mcp",
+  "name": "com.appmanai/appmanai-mcp",
   "title": "AppmanAi",
-  "description": "App Store and Google Play data for ASO research: keyword metrics, rank tracking, top charts, app metadata, reviews and ratings across 100+ countries. 35 read-only tools, per-call pricing published up front.",
+  "description": "App Store & Google Play data for ASO: keywords, rankings, charts, reviews in 100+ countries.",
   "version": "1.0.0",
   "websiteUrl": "https://appmanai.com",
   "repository": {
