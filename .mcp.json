@@ -1,0 +1,5 @@
+{
+  "mcpServers": {
+    "appmanai": { "type": "http", "url": "https://appmanai.com/api/mcp" }
+  }
+}

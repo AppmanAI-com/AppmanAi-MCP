@@ -1,0 +1,11 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "appmanai",
+  "version": "1.0.0",
+  "description": "App Store & Google Play data for ASO: keywords, rankings, charts, reviews in 100+ countries.",
+  "author": { "name": "AppmanAi", "email": "appman@appmanai.com", "url": "https://appmanai.com" },
+  "homepage": "https://appmanai.com",
+  "repository": "https://github.com/AppmanAI-com/AppmanAi-MCP",
+  "license": "MIT",
+  "keywords": ["aso", "app-store-optimization", "app-store", "google-play", "keyword-research", "mcp"]
+}

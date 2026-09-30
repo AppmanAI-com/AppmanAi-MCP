@@ -1,0 +1,8 @@
+{
+  "name": "appmanai",
+  "version": "1.0.0",
+  "description": "App Store & Google Play data for ASO: keywords, rankings, charts, reviews in 100+ countries.",
+  "mcpServers": {
+    "appmanai": { "httpUrl": "https://appmanai.com/api/mcp" }
+  }
+}
