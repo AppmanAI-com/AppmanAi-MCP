@@ -5,6 +5,8 @@
   "description": "App Store & Google Play data for ASO: keyword popularity and difficulty, rank history, top charts, competitor gaps, reviews and ratings across 100+ countries.",
   "author": { "name": "JadeTech OÜ", "email": "appman@appmanai.com", "url": "https://appmanai.com" },
   "homepage": "https://appmanai.com",
+  "icon": ".claude-plugin/icon.png",
+  "privacyPolicyUrl": "https://appmanai.com/privacy",
   "repository": "https://github.com/AppmanAI-com/AppmanAi-MCP",
   "license": "MIT",
   "keywords": ["aso", "app-store-optimization", "app-store", "google-play", "keyword-research"]
