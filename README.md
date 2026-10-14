@@ -14,7 +14,7 @@ across **100+ countries**, answered inside your chat instead of a dashboard.
 
 <br>
 
-[![Add to Claude](https://img.shields.io/badge/Add_to-Claude-D97757?style=for-the-badge&logo=anthropic&logoColor=white)](https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=AppmanAi&connectorUrl=https%3A%2F%2Fappmanai.com%2Fapi%2Fmcp)
+[![Add to Claude](https://img.shields.io/badge/Add_to-Claude-D97757?style=for-the-badge&logo=anthropic&logoColor=white)](https://claude.ai/directory/appmanai)
 [![Add to Cursor](https://img.shields.io/badge/Add_to-Cursor-000000?style=for-the-badge&logo=cursor&logoColor=white)](https://cursor.com/en/install-mcp?name=appmanai&config=eyJ1cmwiOiAiaHR0cHM6Ly9hcHBtYW5haS5jb20vYXBpL21jcCJ9)
 [![Add to VS Code](https://img.shields.io/badge/Add_to-VS_Code-0098FF?style=for-the-badge)](https://insiders.vscode.dev/redirect/mcp/install?name=appmanai&config=%7B%22type%22%3A%20%22http%22%2C%20%22url%22%3A%20%22https%3A%2F%2Fappmanai.com%2Fapi%2Fmcp%22%7D)
 
@@ -77,9 +77,11 @@ the token. **New accounts get 200 free credits, no card.**
 <td><b>Claude</b><br><sub>web · desktop · mobile</sub></td>
 <td>
 
-[**Add AppmanAi to Claude →**](https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=AppmanAi&connectorUrl=https%3A%2F%2Fappmanai.com%2Fapi%2Fmcp)
+[**Add AppmanAi to Claude →**](https://claude.ai/directory/appmanai)
 
-Or: *Settings → Connectors → Add custom connector*, paste the URL, **Allow**.
+Listed in Claude's connector directory: *Customize → Connectors → Discover*, search
+AppmanAi, **Connect**, **Allow**. Or add it by hand as a custom connector
+(*Customize → Connectors → Add*) with the URL.
 
 </td>
 </tr>
@@ -156,9 +158,9 @@ Bridge it over stdio with [`mcp-remote`](https://www.npmjs.com/package/mcp-remot
 
 <br>
 
-**1 · Paste the URL as a custom connector**
+**1 · Find AppmanAi under Connectors → Discover**
 
-<img src=".github/assets/connector-add.png" alt="Claude's Add custom connector dialog with the AppmanAi URL" width="620">
+<img src=".github/assets/connector-directory.png" alt="Claude's Connectors → Discover tab with the AppmanAI connector in the search results" width="620">
 
 **2 · Sign in and click Allow**
 
